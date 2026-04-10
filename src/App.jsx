@@ -494,21 +494,6 @@ export default function App() {
           {/* ── TAB HOY ── */}
           {activeTab === "hoy" && (
             <div style={{ padding: "0 20px" }}>
-              {/* Warmup block */}
-              <div style={{ background: todayEx.color2, border: `1px solid ${todayEx.border}`, borderRadius: 18, padding: 20, marginBottom: 24 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                  <div>
-                    <p style={{ fontSize: 11, color: todayEx.color1, letterSpacing: ".15em", textTransform: "uppercase", opacity: 0.7, marginBottom: 3 }}>Antes de empezar</p>
-                    <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 26, color: todayEx.color1, lineHeight: 1 }}>CALENTAMIENTO</p>
-                  </div>
-                  <span style={{ fontSize: 36 }}>🧘</span>
-                </div>
-                <p style={{ fontSize: 13, color: todayEx.color1, opacity: 0.6, marginBottom: 16, lineHeight: 1.5 }}>4 pasos guiados · 2-3 min · específico para {todayEx.name.toLowerCase()}</p>
-                <button onClick={() => setShowWarmup(true)} style={{ width: "100%", padding: 15, background: todayEx.color1, border: "none", borderRadius: 12, fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, letterSpacing: ".1em", color: getExerciseIdx(TODAY) === 0 ? "#0a0a0f" : "#f0ede8", cursor: "pointer" }}>
-                  EMPEZAR CALENTAMIENTO
-                </button>
-              </div>
-
               {/* Series */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                 <p style={{ fontSize: 11, color: "#555", letterSpacing: ".12em", textTransform: "uppercase" }}>Series recomendadas</p>
@@ -537,6 +522,21 @@ export default function App() {
               <button onClick={() => setShowTimer(true)} style={{ width: "100%", padding: 15, background: viewEx.color2, border: `1px solid ${viewEx.border}`, borderRadius: 14, fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: ".1em", color: viewEx.color1, cursor: "pointer", marginBottom: 24 }}>
                 ⏱ TEMPORIZADOR DE DESCANSO
               </button>
+
+              {/* Warmup block */}
+              <div style={{ background: todayEx.color2, border: `1px solid ${todayEx.border}`, borderRadius: 18, padding: 20, marginBottom: 24 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                  <div>
+                    <p style={{ fontSize: 11, color: todayEx.color1, letterSpacing: ".15em", textTransform: "uppercase", opacity: 0.7, marginBottom: 3 }}>Antes de empezar</p>
+                    <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 26, color: todayEx.color1, lineHeight: 1 }}>CALENTAMIENTO</p>
+                  </div>
+                  <span style={{ fontSize: 36 }}>🧘</span>
+                </div>
+                <p style={{ fontSize: 13, color: todayEx.color1, opacity: 0.6, marginBottom: 16, lineHeight: 1.5 }}>4 pasos guiados · 2-3 min · específico para {todayEx.name.toLowerCase()}</p>
+                <button onClick={() => setShowWarmup(true)} style={{ width: "100%", padding: 15, background: todayEx.color1, border: "none", borderRadius: 12, fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, letterSpacing: ".1em", color: getExerciseIdx(TODAY) === 0 ? "#0a0a0f" : "#f0ede8", cursor: "pointer" }}>
+                  EMPEZAR CALENTAMIENTO
+                </button>
+              </div>
 
               <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 14, padding: 16, border: "1px solid rgba(255,255,255,0.07)" }}>
                 <p style={{ fontSize: 11, color: "#555", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 12 }}>Ver otro día</p>
