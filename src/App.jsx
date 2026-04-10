@@ -7,46 +7,132 @@ const DAY_OF_YEAR = () => {
   return Math.floor(diff / (1000 * 60 * 60 * 24));
 };
 
-const TOTAL_YEAR_PUSHUPS = 365 * (365 + 1) / 2;
+const TODAY = DAY_OF_YEAR();
+const NOW = new Date();
+const YEAR = NOW.getFullYear();
+const TOTAL_ALL = 365 * 366 / 2;
+const START_DAY = 100;
 
-const getSeries = (total) => {
-  const s1 = Math.round(total * 0.40);
-  const s2 = Math.round(total * 0.33);
-  const s3 = total - s1 - s2;
-  return [s1, s2, s3];
+const EXERCISES = [
+  { name: "Flexiones", short: "FLEX", color1: "#e8ff47", color2: "rgba(232,255,71,0.06)", border: "rgba(232,255,71,0.3)", timerColor: "#e8ff47",
+    glow: "conic-gradient(from 200deg,#e8ff47,#47ffb8,#e8ff47 60%,transparent 60%)",
+    warmup: [
+      { icon: "🙆", title: "Rotación de hombros", desc: "10 círculos hacia delante y 10 hacia atrás. Activa el manguito rotador." },
+      { icon: "🤸", title: "Apertura de pecho", desc: "Entrelaza los dedos detrás, saca pecho y mantén 20 segundos. Abre la musculatura pectoral." },
+      { icon: "👐", title: "Muñecas y antebrazos", desc: "Estira cada muñeca 15 segundos. Esencial para proteger articulaciones en la bajada." },
+      { icon: "🏋️", title: "Flexiones lentas x5", desc: "5 repeticiones muy lentas (3 seg bajada, 3 seg subida). Activan el movimiento sin cargar." },
+    ]
+  },
+  { name: "Sentadillas", short: "SENT", color1: "#ff8c47", color2: "rgba(255,140,71,0.06)", border: "rgba(255,140,71,0.3)", timerColor: "#ff8c47",
+    glow: "conic-gradient(from 200deg,#ff8c47,#ffb847,#ff8c47 60%,transparent 60%)",
+    warmup: [
+      { icon: "🦵", title: "Rotación de cadera", desc: "10 círculos con cada cadera. Activa la articulación coxofemoral." },
+      { icon: "🧘", title: "Movilidad de tobillo", desc: "Apoya la punta del pie en la pared, empuja la rodilla hacia ella 10 veces por lado." },
+      { icon: "🔥", title: "Sentadilla asistida", desc: "Agárrate a algo y baja lentamente 5 veces. Activa cuádriceps y glúteos progresivamente." },
+      { icon: "🏃", title: "Zancadas dinámicas", desc: "4 pasos de zancada por pierna. Activan los flexores de cadera y mejoran el rango." },
+    ]
+  },
+  { name: "Abdominales", short: "ABS", color1: "#b847ff", color2: "rgba(184,71,255,0.06)", border: "rgba(184,71,255,0.3)", timerColor: "#b847ff",
+    glow: "conic-gradient(from 200deg,#b847ff,#ff47e8,#b847ff 60%,transparent 60%)",
+    warmup: [
+      { icon: "🌀", title: "Respiración diafragmática", desc: "3 respiraciones profundas activando el core. Inhala inflando el vientre, exhala vaciándolo todo." },
+      { icon: "🐱", title: "Gato-vaca x10", desc: "En cuadrupedia, arquea y redondea la espalda lentamente. Moviliza toda la columna lumbar." },
+      { icon: "🦋", title: "Rodillas al pecho", desc: "Tumbado, lleva ambas rodillas al pecho y mantén 20 segundos. Activa la zona lumbar." },
+      { icon: "⚡", title: "Plancha 20 seg", desc: "Mantén posición de plancha 20 segundos activando el core. Calentamiento perfecto para el trabajo abdominal." },
+    ]
+  },
+];
+
+const MILESTONES = [
+  { reps: 1000,  label: "1K Reps",    icon: "🥉" },
+  { reps: 5000,  label: "5K Reps",    icon: "🥈" },
+  { reps: 10000, label: "10K Reps",   icon: "🥇" },
+  { reps: 25000, label: "25K Reps",   icon: "🏆" },
+  { reps: 50000, label: "50K Reps",   icon: "🔥" },
+  { reps: 66795, label: "¡Reto 365!", icon: "👑" },
+];
+
+const getExerciseIdx = (day) => {
+  if (day < START_DAY) return 0;
+  const o = day - START_DAY;
+  if (o % 2 === 0) return 0;
+  return (Math.floor(o / 2) % 2) === 0 ? 1 : 2;
+};
+const getExercise = (day) => EXERCISES[getExerciseIdx(day)];
+const getTotalDone = (d) => d * (d + 1) / 2;
+const getTotalRemaining = (d) => TOTAL_ALL - getTotalDone(d);
+
+const getMilestoneDay = (reps) => { for (let d = 1; d <= 365; d++) { if (getTotalDone(d) >= reps) return d; } return null; };
+const getDayDate = (day) => new Date(YEAR, 0, day).toLocaleDateString("es-ES", { day: "numeric", month: "short" });
+
+const getExerciseStats = (upToDay) => {
+  const doneReps = [0, 0, 0], totalReps = [0, 0, 0], counts = [0, 0, 0];
+  for (let d = 1; d <= 365; d++) {
+    const i = getExerciseIdx(d);
+    totalReps[i] += d;
+    if (d <= upToDay) { doneReps[i] += d; counts[i]++; }
+  }
+  return { doneReps, totalReps, remainingReps: totalReps.map((t, i) => t - doneReps[i]), counts };
 };
 
-const getTotalDone = (day) => day * (day + 1) / 2;
-const getTotalRemaining = (day) => TOTAL_YEAR_PUSHUPS - getTotalDone(day);
+const getSeries = (total, count) => {
+  const ratios = { 2: [0.55, 0.45], 3: [0.40, 0.33, 0.27], 4: [0.32, 0.27, 0.23, 0.18], 5: [0.28, 0.23, 0.20, 0.16, 0.13], 6: [0.24, 0.20, 0.17, 0.14, 0.13, 0.12] };
+  const r = ratios[count] || ratios[3];
+  const arr = r.map((x, i) => i < r.length - 1 ? Math.round(total * x) : 0);
+  arr[arr.length - 1] = total - arr.slice(0, -1).reduce((a, b) => a + b, 0);
+  return arr;
+};
 
 const getMonthDayRange = (month, year) => {
-  const yearStart = new Date(year, 0, 0);
-  const toDoy = (d) => {
-    const diff = d - yearStart + (yearStart.getTimezoneOffset() - d.getTimezoneOffset()) * 60000;
-    return Math.floor(diff / 86400000);
-  };
+  const ys = new Date(year, 0, 0);
+  const toDoy = (d) => Math.floor((d - ys + (ys.getTimezoneOffset() - d.getTimezoneOffset()) * 60000) / 86400000);
   return [toDoy(new Date(year, month, 1)), toDoy(new Date(year, month + 1, 0))];
 };
-
-const getPushupsInRange = (from, to) => {
-  const t = Math.max(0, to);
-  const f = Math.max(0, from - 1);
-  return getTotalDone(t) - getTotalDone(f);
-};
+const getPushupsInRange = (from, to) => getTotalDone(Math.max(0, to)) - getTotalDone(Math.max(0, from - 1));
 
 const MOTIVATIONAL = [
   "Cada rep cuenta. Cada día importa.",
   "El dolor de hoy es la fuerza de mañana.",
   "No pares cuando estés cansado. Para cuando hayas terminado.",
-  "Pequeños pasos, grandes resultados.",
   "Tu único competidor eres tú de ayer.",
   "La constancia supera al talento.",
   "Un día más. Una rep más. Siempre adelante.",
 ];
+const MONTH_NAMES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
 const REST_SECONDS = 180;
 
-function TimerModal({ onClose }) {
+function WarmupModal({ exerciseIdx, onClose }) {
+  const ex = EXERCISES[exerciseIdx];
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(6px)" }}>
+      <div style={{ background: "#111118", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 26, padding: "30px 24px", width: 320, maxHeight: "85vh", overflowY: "auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <div>
+            <p style={{ fontSize: 11, color: "#555", letterSpacing: ".15em", textTransform: "uppercase", marginBottom: 2 }}>Calentamiento</p>
+            <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 26, color: ex.color1, lineHeight: 1 }}>{ex.name}</p>
+          </div>
+          <span style={{ fontSize: 28 }}>{["💪","🦵","🔥"][exerciseIdx]}</span>
+        </div>
+        {ex.warmup.map((w, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "10px 0", borderBottom: i < ex.warmup.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
+            <span style={{ fontSize: 22, flexShrink: 0 }}>{w.icon}</span>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 500, color: "#f0ede8", marginBottom: 3 }}>{w.title}</p>
+              <p style={{ fontSize: 12, color: "#666", lineHeight: 1.5 }}>{w.desc}</p>
+            </div>
+          </div>
+        ))}
+        <p style={{ fontSize: 11, color: "#555", marginTop: 14, textAlign: "center" }}>2-3 min en total antes de empezar</p>
+        <button onClick={onClose} style={{ marginTop: 16, width: "100%", padding: 13, border: "none", borderRadius: 11, fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: ".1em", cursor: "pointer", background: `linear-gradient(135deg,${ex.color1},${ex.color1}cc)`, color: exerciseIdx === 0 ? "#0a0a0f" : "#f0ede8" }}>
+          ¡LISTO, A ENTRENAR!
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TimerModal({ color, onClose }) {
   const [seconds, setSeconds] = useState(REST_SECONDS);
   const [running, setRunning] = useState(false);
   const intervalRef = useRef(null);
@@ -61,397 +147,411 @@ function TimerModal({ onClose }) {
     return () => clearInterval(intervalRef.current);
   }, [running, seconds]);
 
-  const toggle = () => {
-    if (seconds === 0) { setSeconds(REST_SECONDS); return; }
-    setRunning(r => !r);
-  };
+  const toggle = () => { if (seconds === 0) { setSeconds(REST_SECONDS); return; } setRunning(r => !r); };
   const reset = () => { setRunning(false); setSeconds(REST_SECONDS); };
-
-  const pct = ((REST_SECONDS - seconds) / REST_SECONDS) * 100;
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
   const done = seconds === 0;
-  const r = 54;
-  const circ = 2 * Math.PI * r;
-  const offset = circ - (pct / 100) * circ;
+  const mins = String(Math.floor(seconds / 60)).padStart(2, "0");
+  const secs = String(seconds % 60).padStart(2, "0");
+  const r = 50, circ = 2 * Math.PI * r;
+  const offset = circ - ((REST_SECONDS - seconds) / REST_SECONDS) * circ;
 
   return (
-    <div style={{
-      position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 100,
-      display: "flex", alignItems: "center", justifyContent: "center",
-      backdropFilter: "blur(8px)",
-    }} onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} style={{
-        background: "#111118", border: "1px solid rgba(255,255,255,0.1)",
-        borderRadius: 28, padding: "40px 32px", width: 300, textAlign: "center",
-        boxShadow: "0 40px 80px rgba(0,0,0,0.6)",
-      }}>
-        <p style={{ fontSize: 11, color: "#555", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 28 }}>
-          Descanso entre series
-        </p>
-
-        <div style={{ position: "relative", width: 140, height: 140, margin: "0 auto 28px" }}>
-          <svg width="140" height="140" style={{ transform: "rotate(-90deg)" }}>
-            <circle cx="70" cy="70" r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="6" />
-            <circle cx="70" cy="70" r={r} fill="none"
-              stroke={done ? "#47ffb8" : "#e8ff47"} strokeWidth="6"
-              strokeDasharray={circ} strokeDashoffset={offset}
-              strokeLinecap="round"
-              style={{ transition: "stroke-dashoffset 0.9s linear, stroke 0.3s" }}
-            />
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(6px)" }}>
+      <div style={{ background: "#111118", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 26, padding: "32px 26px", width: 280, textAlign: "center" }}>
+        <p style={{ fontSize: 11, color: "#555", letterSpacing: ".2em", textTransform: "uppercase", marginBottom: 22 }}>Descanso entre series</p>
+        <div style={{ position: "relative", width: 120, height: 120, margin: "0 auto 22px" }}>
+          <svg width="120" height="120" style={{ transform: "rotate(-90deg)" }}>
+            <circle cx="60" cy="60" r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="5" />
+            <circle cx="60" cy="60" r={r} fill="none" stroke={done ? "#47ffb8" : color} strokeWidth="5"
+              strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
+              style={{ transition: "stroke-dashoffset 0.9s linear, stroke 0.3s" }} />
           </svg>
           <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-            {done ? (
-              <span style={{ fontSize: 36 }}>💪</span>
-            ) : (
-              <>
-                <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 40, color: "#f0ede8", lineHeight: 1 }}>
-                  {String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}
-                </span>
-                <span style={{ fontSize: 10, color: "#444", marginTop: 2 }}>restantes</span>
-              </>
-            )}
+            {done ? <span style={{ fontSize: 32 }}>💪</span> : <>
+              <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 36, color: "#f0ede8", lineHeight: 1 }}>{mins}:{secs}</span>
+              <span style={{ fontSize: 10, color: "#444", marginTop: 2 }}>restantes</span>
+            </>}
           </div>
         </div>
-
-        {done && <p style={{ fontSize: 14, color: "#47ffb8", marginBottom: 20, fontWeight: 500 }}>¡A por la siguiente serie!</p>}
-
-        <div style={{ display: "flex", gap: 10 }}>
-          <button onClick={toggle} style={{
-            flex: 2, padding: "14px",
-            background: done ? "linear-gradient(135deg,#47ffb8,#00d4a0)" : running ? "rgba(255,255,255,0.08)" : "linear-gradient(135deg,#e8ff47,#b8ff00)",
-            border: "none", borderRadius: 12,
-            fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: "0.1em",
-            color: !running && !done ? "#0a0a0f" : "#f0ede8", cursor: "pointer",
-          }}>
+        {done && <p style={{ fontSize: 13, color: "#47ffb8", marginBottom: 14 }}>¡A por la siguiente serie!</p>}
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={toggle} style={{ flex: 2, padding: 12, border: "none", borderRadius: 11, fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: ".1em", cursor: "pointer", background: done ? "linear-gradient(135deg,#47ffb8,#00d4a0)" : running ? "rgba(255,255,255,0.08)" : `linear-gradient(135deg,${color},${color}99)`, color: (!running && !done && color === "#e8ff47") ? "#0a0a0f" : "#f0ede8" }}>
             {done ? "REPETIR" : running ? "PAUSAR" : "INICIAR"}
           </button>
-          <button onClick={reset} style={{
-            flex: 1, padding: "14px", background: "rgba(255,255,255,0.05)",
-            border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12,
-            color: "#666", cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif",
-          }}>Reset</button>
+          <button onClick={reset} style={{ flex: 1, padding: 12, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 11, color: "#666", cursor: "pointer", fontSize: 12 }}>Reset</button>
         </div>
-
-        <button onClick={onClose} style={{
-          marginTop: 16, background: "none", border: "none",
-          color: "#444", fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
-        }}>Cerrar</button>
+        <button onClick={onClose} style={{ marginTop: 12, background: "none", border: "none", color: "#444", fontSize: 12, cursor: "pointer" }}>Cerrar</button>
       </div>
     </div>
   );
 }
 
+function CurveChart({ todayEx }) {
+  const W = 340, H = 130, pad = { t: 10, r: 12, b: 22, l: 36 };
+  const iW = W - pad.l - pad.r, iH = H - pad.t - pad.b;
+  const xScale = (d) => pad.l + ((d - 1) / 364) * iW;
+  const yScale = (r) => pad.t + iH - (r / 365) * iH;
+
+  let fullPath = "", donePath = "";
+  for (let d = 1; d <= 365; d++) {
+    const x = xScale(d), y = yScale(d);
+    fullPath += d === 1 ? `M${x},${y}` : `L${x},${y}`;
+    if (d <= TODAY) donePath += d === 1 ? `M${x},${y}` : `L${x},${y}`;
+  }
+  let fillPath = donePath + `L${xScale(TODAY)},${pad.t + iH} L${xScale(1)},${pad.t + iH} Z`;
+
+  const yLabels = [0, 100, 200, 300, 365].map(r =>
+    `<text key="${r}" x="${pad.l - 5}" y="${yScale(r) + 4}" textAnchor="end" fontSize="9" fill="#444">${r}</text>`
+  );
+  const monthTicks = [0, 2, 4, 6, 8, 10].map(m => {
+    const [ms] = getMonthDayRange(m, YEAR);
+    return <text key={m} x={xScale(Math.min(ms, 365))} y={H - 4} textAnchor="middle" fontSize="9" fill="#444">{MONTH_NAMES[m].slice(0, 3)}</text>;
+  });
+
+  return (
+    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: "visible" }}>
+      <defs>
+        <linearGradient id="fillGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={todayEx.color1} stopOpacity="0.25" />
+          <stop offset="100%" stopColor={todayEx.color1} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <line x1={pad.l} y1={pad.t} x2={pad.l} y2={pad.t + iH} stroke="rgba(255,255,255,0.08)" strokeWidth="0.5" />
+      <line x1={pad.l} y1={pad.t + iH} x2={pad.l + iW} y2={pad.t + iH} stroke="rgba(255,255,255,0.08)" strokeWidth="0.5" />
+      {[0, 100, 200, 300, 365].map(r => (
+        <text key={r} x={pad.l - 5} y={yScale(r) + 4} textAnchor="end" fontSize="9" fill="#444">{r}</text>
+      ))}
+      {monthTicks}
+      <path d={fillPath} fill="url(#fillGrad)" />
+      <path d={fullPath} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="1.5" />
+      <path d={donePath} fill="none" stroke={todayEx.color1} strokeWidth="2" />
+      {MILESTONES.map((m) => {
+        const d = getMilestoneDay(m.reps);
+        if (!d) return null;
+        const unlocked = d <= TODAY;
+        return <circle key={m.reps} cx={xScale(d)} cy={yScale(d)} r="3" fill={unlocked ? "#47ffb8" : "rgba(255,255,255,0.15)"} />;
+      })}
+      <circle cx={xScale(TODAY)} cy={yScale(TODAY)} r="5" fill={todayEx.color1} />
+      <circle cx={xScale(TODAY)} cy={yScale(TODAY)} r="9" fill={todayEx.color1} opacity="0.2" />
+      <line x1={xScale(TODAY)} y1={yScale(TODAY)} x2={xScale(TODAY)} y2={pad.t + iH} stroke={todayEx.color1} strokeWidth="1" strokeDasharray="3,2" opacity="0.4" />
+      <text x={xScale(TODAY) + 6} y={yScale(TODAY) - 5} fontSize="9" fill={todayEx.color1}>Día {TODAY}</text>
+    </svg>
+  );
+}
+
 export default function App() {
-  const TODAY = DAY_OF_YEAR();
-  const NOW = new Date();
-  const YEAR = NOW.getFullYear();
   const [currentDay, setCurrentDay] = useState(TODAY);
   const [activeTab, setActiveTab] = useState("hoy");
+  const [seriesCount, setSeriesCount] = useState(3);
   const [showTimer, setShowTimer] = useState(false);
+  const [showWarmup, setShowWarmup] = useState(false);
 
-  const quote = MOTIVATIONAL[TODAY % MOTIVATIONAL.length];
-  const series = getSeries(currentDay);
+  const todayEx = getExercise(TODAY);
+  const viewEx = getExercise(currentDay);
+  const series = getSeries(currentDay, seriesCount);
   const totalDone = getTotalDone(TODAY);
-  const totalRemaining = getTotalRemaining(TODAY);
-  const progressPct = Math.round((totalDone / TOTAL_YEAR_PUSHUPS) * 100 * 10) / 10;
-
-  const daysLeft = 365 - TODAY;
-  const endDateStr = new Date(YEAR, 11, 31).toLocaleDateString("es-ES", { day: "numeric", month: "long" });
+  const progressPct = (totalDone / TOTAL_ALL * 100).toFixed(1);
+  const quote = MOTIVATIONAL[TODAY % MOTIVATIONAL.length];
+  const exStats = getExerciseStats(TODAY);
+  const unlockedMilestones = MILESTONES.filter(m => totalDone >= m.reps);
+  const nextMilestone = MILESTONES.find(m => totalDone < m.reps);
 
   const currentMonth = NOW.getMonth();
   const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-  const prevMonthYear = currentMonth === 0 ? YEAR - 1 : YEAR;
-  const MONTH_NAMES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-
-  const [cmStart, cmEnd] = getMonthDayRange(currentMonth, YEAR);
-  const currentMonthDone = getPushupsInRange(cmStart, Math.min(cmEnd, TODAY));
-  const currentMonthTotal = getPushupsInRange(cmStart, cmEnd);
-  const currentMonthDaysElapsed = Math.max(1, Math.min(TODAY - cmStart + 1, cmEnd - cmStart + 1));
-  const currentMonthDaysTotal = cmEnd - cmStart + 1;
-
-  const [pmStart, pmEnd] = getMonthDayRange(prevMonth, prevMonthYear);
-  const prevMonthTotal = getPushupsInRange(pmStart, pmEnd);
-  const monthDiff = currentMonthDone - prevMonthTotal;
-  const monthDiffPct = prevMonthTotal > 0 ? Math.round((monthDiff / prevMonthTotal) * 100) : 0;
+  const [cmS, cmE] = getMonthDayRange(currentMonth, YEAR);
+  const cmdone = getPushupsInRange(cmS, Math.min(cmE, TODAY));
+  const [pmS, pmE] = getMonthDayRange(prevMonth, currentMonth === 0 ? YEAR - 1 : YEAR);
+  const pmtotal = getPushupsInRange(pmS, pmE);
+  const mdiff = cmdone - pmtotal;
+  const mdiffpct = pmtotal > 0 ? Math.round(mdiff / pmtotal * 100) : 0;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0a0a0f", fontFamily: "'DM Sans', system-ui, sans-serif", color: "#f0ede8", position: "relative", overflow: "hidden" }}>
+    <div style={{ minHeight: "100vh", background: "#0a0a0f", fontFamily: "'DM Sans', system-ui, sans-serif", color: "#f0ede8", position: "relative" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Bebas+Neue&display=swap');
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        .glow-ring { background: conic-gradient(from 200deg, #e8ff47, #47ffb8, #e8ff47 60%, transparent 60%); border-radius: 50%; padding: 3px; }
-        .glow-ring-inner { background: #0a0a0f; border-radius: 50%; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column; }
-        .tab-btn { background: none; border: none; color: #555; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; padding: 8px 14px; border-radius: 20px; transition: all 0.2s; }
-        .tab-btn.active { background: #e8ff47; color: #0a0a0f; }
-        .series-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 16px; flex: 1; text-align: center; transition: transform 0.2s; }
-        .series-card:hover { transform: translateY(-2px); }
-        .series-card.primary { border-color: rgba(232,255,71,0.3); background: rgba(232,255,71,0.06); }
-        .series-card.secondary { border-color: rgba(71,255,184,0.2); background: rgba(71,255,184,0.04); }
-        .stat-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: 16px; padding: 20px; }
-        .day-dot { width: 9px; height: 9px; border-radius: 2px; display: inline-block; margin: 1px; }
-        .timer-btn { width: 100%; padding: 15px; background: rgba(232,255,71,0.08); border: 1px solid rgba(232,255,71,0.25); border-radius: 14px; font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 0.1em; color: #e8ff47; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 10px; }
-        .timer-btn:hover { background: rgba(232,255,71,0.14); transform: translateY(-1px); }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        .slide-up { animation: slideUp 0.4s ease forwards; }
-        .progress-bar-track { background: rgba(255,255,255,0.07); border-radius: 100px; height: 6px; overflow: hidden; }
-        .progress-bar-fill { height: 100%; background: linear-gradient(90deg,#e8ff47,#47ffb8); border-radius: 100px; transition: width 1s ease; }
-        ::-webkit-scrollbar { width: 0; }
+        *{box-sizing:border-box;margin:0;padding:0;}
+        .tab-btn{background:none;border:none;color:#555;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;padding:7px 11px;border-radius:20px;transition:all .2s;}
+        .series-card{border-radius:14px;padding:12px;flex:1;text-align:center;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.04);}
+        .stat-card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:16px;}
+        .sc-btn{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);color:#f0ede8;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:17px;}
+        .ex-row{display:flex;align-items:center;padding:11px 0;border-bottom:1px solid rgba(255,255,255,0.05);}
+        .ex-row:last-child{border-bottom:none;}
+        @keyframes slideUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+        .slide-up{animation:slideUp .3s ease forwards;}
+        @keyframes badgePop{0%{transform:scale(0.5);opacity:0}70%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+        .badge-pop{animation:badgePop .5s ease forwards;}
+        ::-webkit-scrollbar{width:0;}
       `}</style>
 
-      {showTimer && <TimerModal onClose={() => setShowTimer(false)} />}
+      {showTimer && <TimerModal color={todayEx.timerColor} onClose={() => setShowTimer(false)} />}
+      {showWarmup && <WarmupModal exerciseIdx={getExerciseIdx(TODAY)} onClose={() => setShowWarmup(false)} />}
 
-      <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, background: "radial-gradient(ellipse 80% 50% at 50% -20%, rgba(232,255,71,0.07) 0%, transparent 60%)" }} />
-
-      <div style={{ maxWidth: 430, margin: "0 auto", padding: "0 0 40px", position: "relative", zIndex: 1 }}>
+      <div style={{ maxWidth: 430, margin: "0 auto", padding: "0 0 40px" }}>
 
         {/* Header */}
-        <div style={{ padding: "32px 24px 0" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+        <div style={{ padding: "26px 18px 0" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 5 }}>
             <div>
-              <p style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#555", marginBottom: 4 }}>Reto 365</p>
-              <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 42, letterSpacing: "0.05em", lineHeight: 1, color: "#f0ede8" }}>FLEXIONES</h1>
+              <p style={{ fontSize: 11, letterSpacing: ".2em", textTransform: "uppercase", color: "#555", marginBottom: 2 }}>Reto 365</p>
+              <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 36, letterSpacing: ".05em", lineHeight: 1, color: "#f0ede8" }}>RETO 365</h1>
             </div>
             <div style={{ textAlign: "right" }}>
-              <p style={{ fontSize: 11, color: "#555", letterSpacing: "0.1em", textTransform: "uppercase" }}>Racha</p>
-              <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 32, color: "#e8ff47" }}>{TODAY}<span style={{ fontSize: 16, marginLeft: 2 }}>🔥</span></p>
+              <p style={{ fontSize: 11, color: "#555", letterSpacing: ".1em", textTransform: "uppercase" }}>Racha</p>
+              <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 28, color: todayEx.color1 }}>{TODAY}<span style={{ fontSize: 14, marginLeft: 2 }}>🔥</span></p>
             </div>
           </div>
-          <p style={{ fontSize: 13, color: "#444", fontStyle: "italic" }}>"{quote}"</p>
+          <p style={{ fontSize: 12, color: "#444", fontStyle: "italic" }}>"{quote}"</p>
         </div>
 
         {/* Hero ring */}
-        <div style={{ padding: "24px 24px 16px", display: "flex", alignItems: "center", gap: 20 }}>
-          <div className="glow-ring" style={{ width: 130, height: 130, flexShrink: 0 }}>
-            <div className="glow-ring-inner">
-              <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 44, color: "#e8ff47", lineHeight: 1 }}>{TODAY}</span>
-              <span style={{ fontSize: 11, color: "#666", letterSpacing: "0.1em", textTransform: "uppercase" }}>hoy</span>
+        <div style={{ padding: "18px 18px 12px", display: "flex", alignItems: "center", gap: 14 }}>
+          <div style={{ background: todayEx.glow, borderRadius: "50%", padding: 3, width: 112, height: 112, flexShrink: 0 }}>
+            <div style={{ background: "#0a0a0f", borderRadius: "50%", width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column" }}>
+              <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 38, color: todayEx.color1, lineHeight: 1 }}>{TODAY}</span>
+              <span style={{ fontSize: 10, color: "#666", letterSpacing: ".1em", textTransform: "uppercase" }}>{todayEx.short} hoy</span>
             </div>
           </div>
           <div style={{ flex: 1 }}>
-            <p style={{ fontSize: 11, color: "#555", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 4 }}>Día del año</p>
-            <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 52, color: "#f0ede8", lineHeight: 1 }}>{TODAY}<span style={{ fontSize: 20, color: "#444" }}>/365</span></p>
-            <div className="progress-bar-track" style={{ marginTop: 10 }}>
-              <div className="progress-bar-fill" style={{ width: `${(TODAY / 365) * 100}%` }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
+              <span style={{ fontSize: 10, color: "#555", letterSpacing: ".1em", textTransform: "uppercase" }}>Día del año</span>
+              <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 10, background: todayEx.color2, border: `1px solid ${todayEx.border}`, color: todayEx.color1 }}>{todayEx.name}</span>
             </div>
-            <p style={{ fontSize: 11, color: "#444", marginTop: 6 }}>{progressPct}% completado</p>
+            <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 44, color: "#f0ede8", lineHeight: 1 }}>{TODAY}<span style={{ fontSize: 16, color: "#444" }}>/365</span></p>
+            <div style={{ background: "rgba(255,255,255,0.07)", borderRadius: 100, height: 5, overflow: "hidden", marginTop: 7 }}>
+              <div style={{ height: "100%", borderRadius: 100, width: `${(TODAY / 365 * 100)}%`, background: todayEx.color1 }} />
+            </div>
+            <p style={{ fontSize: 10, color: "#444", marginTop: 4 }}>{progressPct}% completado</p>
           </div>
         </div>
 
-        {/* Tabs */}
-        <div style={{ display: "flex", gap: 2, padding: "0 20px 16px" }}>
-          {[["hoy","Hoy"],["stats","Stats"],["historial","Historial"]].map(([key, label]) => (
-            <button key={key} className={`tab-btn ${activeTab === key ? "active" : ""}`} onClick={() => setActiveTab(key)}>{label}</button>
-          ))}
-        </div>
-
-        {/* ── TAB HOY ── */}
-        {activeTab === "hoy" && (
-          <div style={{ padding: "0 20px" }} className="slide-up">
-            <p style={{ fontSize: 11, color: "#555", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 12 }}>Series recomendadas</p>
-            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-              {series.map((s, i) => (
-                <div key={i} className={`series-card ${i === 0 ? "primary" : i === 1 ? "secondary" : ""}`}>
-                  <p style={{ fontSize: 10, color: i === 0 ? "rgba(232,255,71,0.6)" : i === 1 ? "rgba(71,255,184,0.6)" : "#444", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Serie {i + 1}</p>
-                  <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 42, color: i === 0 ? "#e8ff47" : i === 1 ? "#47ffb8" : "#888", lineHeight: 1 }}>{s}</p>
-                  <p style={{ fontSize: 10, color: "#444", marginTop: 4 }}>reps</p>
-                  <p style={{ fontSize: 10, marginTop: 6, color: i === 0 ? "rgba(232,255,71,0.5)" : i === 1 ? "rgba(71,255,184,0.4)" : "#333" }}>
-                    {i === 0 ? "máx energía" : i === 1 ? "ritmo medio" : "cierre"}
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 14, padding: "12px 16px", marginBottom: 14, border: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between" }}>
-              <div><span style={{ fontSize: 11, color: "#555" }}>TOTAL </span><span style={{ fontSize: 11, color: "#47ffb8" }}>{series[0]} + {series[1]} + {series[2]} = {series.reduce((a, b) => a + b, 0)}</span></div>
-              <div><span style={{ fontSize: 11, color: "#555" }}>DESCANSO </span><span style={{ fontSize: 11, color: "#e8ff47" }}>3 min</span></div>
-            </div>
-
-            <button className="timer-btn" onClick={() => setShowTimer(true)} style={{ marginBottom: 20 }}>
-              <span style={{ fontSize: 20 }}>⏱</span>
-              INICIAR TEMPORIZADOR DE DESCANSO
-            </button>
-
-            <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 16, padding: 16, border: "1px solid rgba(255,255,255,0.07)" }}>
-              <p style={{ fontSize: 11, color: "#555", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 12 }}>Ver otro día</p>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <button onClick={() => setCurrentDay(d => Math.max(1, d - 1))} style={{ background: "rgba(255,255,255,0.07)", border: "none", color: "#f0ede8", width: 36, height: 36, borderRadius: 8, cursor: "pointer", fontSize: 18 }}>‹</button>
-                <div style={{ flex: 1, textAlign: "center" }}>
-                  <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 28, color: "#f0ede8" }}>Día {currentDay}</span>
-                  <span style={{ fontSize: 12, color: "#555", display: "block" }}>{currentDay} flex · {getSeries(currentDay).join(" + ")}</span>
-                </div>
-                <button onClick={() => setCurrentDay(d => Math.min(365, d + 1))} style={{ background: "rgba(255,255,255,0.07)", border: "none", color: "#f0ede8", width: 36, height: 36, borderRadius: 8, cursor: "pointer", fontSize: 18 }}>›</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── TAB STATS ── */}
-        {activeTab === "stats" && (
-          <div style={{ padding: "0 20px" }} className="slide-up">
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-              <div className="stat-card">
-                <p style={{ fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>Hechas</p>
-                <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 36, color: "#e8ff47", lineHeight: 1 }}>{totalDone.toLocaleString()}</p>
-                <p style={{ fontSize: 10, color: "#444", marginTop: 4 }}>flexiones</p>
-              </div>
-              <div className="stat-card">
-                <p style={{ fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>Quedan</p>
-                <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 36, color: "#47ffb8", lineHeight: 1 }}>{totalRemaining.toLocaleString()}</p>
-                <p style={{ fontSize: 10, color: "#444", marginTop: 4 }}>flexiones</p>
-              </div>
-              <div className="stat-card">
-                <p style={{ fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>Total año</p>
-                <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 36, color: "#f0ede8", lineHeight: 1 }}>{TOTAL_YEAR_PUSHUPS.toLocaleString()}</p>
-                <p style={{ fontSize: 10, color: "#444", marginTop: 4 }}>flexiones</p>
-              </div>
-              <div className="stat-card">
-                <p style={{ fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>Media diaria</p>
-                <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 36, color: "#ff8c47", lineHeight: 1 }}>{Math.round(totalDone / TODAY)}</p>
-                <p style={{ fontSize: 10, color: "#444", marginTop: 4 }}>hasta hoy</p>
-              </div>
-            </div>
-
-            {/* Proyección */}
-            <div className="stat-card" style={{ marginBottom: 12, background: "rgba(71,255,184,0.03)", borderColor: "rgba(71,255,184,0.15)" }}>
-              <p style={{ fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14 }}>📅 Proyección fin de año</p>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 14 }}>
-                <div>
-                  <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 40, color: "#47ffb8", lineHeight: 1 }}>{TOTAL_YEAR_PUSHUPS.toLocaleString()}</p>
-                  <p style={{ fontSize: 11, color: "#444", marginTop: 4 }}>flexiones el 31 dic</p>
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 28, color: "#f0ede8" }}>{daysLeft}</p>
-                  <p style={{ fontSize: 11, color: "#444" }}>días restantes</p>
-                </div>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 10, color: "#555", whiteSpace: "nowrap" }}>1 ene</span>
-                <div style={{ flex: 1, height: 6, background: "rgba(255,255,255,0.06)", borderRadius: 100, overflow: "hidden" }}>
-                  <div style={{ width: `${(TODAY / 365) * 100}%`, height: "100%", background: "linear-gradient(90deg,#e8ff47,#47ffb8)", borderRadius: 100 }} />
-                </div>
-                <span style={{ fontSize: 10, color: "#47ffb8", whiteSpace: "nowrap" }}>31 dic</span>
-              </div>
-              <p style={{ fontSize: 11, color: "#47ffb8", marginTop: 10, textAlign: "center" }}>
-                Vas al 100% del reto — terminas el {endDateStr} ✓
-              </p>
-            </div>
-
-            {/* Comparativa mensual */}
-            <div className="stat-card" style={{ marginBottom: 12 }}>
-              <p style={{ fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14 }}>📊 Comparativa mensual</p>
-              <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-                <div style={{ flex: 1, background: "rgba(255,255,255,0.03)", borderRadius: 12, padding: "14px 12px", border: "1px solid rgba(255,255,255,0.06)" }}>
-                  <p style={{ fontSize: 10, color: "#444", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.08em" }}>{MONTH_NAMES[prevMonth]}</p>
-                  <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 30, color: "#666", lineHeight: 1 }}>{prevMonthTotal.toLocaleString()}</p>
-                  <p style={{ fontSize: 10, color: "#333", marginTop: 4 }}>total mes</p>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28 }}>
-                  <span style={{ fontSize: 10, color: "#333", fontWeight: 600 }}>VS</span>
-                </div>
-                <div style={{ flex: 1, background: "rgba(232,255,71,0.05)", borderRadius: 12, padding: "14px 12px", border: "1px solid rgba(232,255,71,0.15)" }}>
-                  <p style={{ fontSize: 10, color: "rgba(232,255,71,0.6)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.08em" }}>{MONTH_NAMES[currentMonth]}</p>
-                  <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 30, color: "#e8ff47", lineHeight: 1 }}>{currentMonthDone.toLocaleString()}</p>
-                  <p style={{ fontSize: 10, color: "#555", marginTop: 4 }}>de {currentMonthTotal.toLocaleString()}</p>
-                </div>
-              </div>
-
-              <div style={{ marginBottom: 10 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
-                  <span style={{ fontSize: 10, color: "#444" }}>{MONTH_NAMES[prevMonth]}</span>
-                  <span style={{ fontSize: 10, color: "#444" }}>{MONTH_NAMES[currentMonth]}</span>
-                </div>
-                <div style={{ display: "flex", height: 8, borderRadius: 100, overflow: "hidden", gap: 2 }}>
-                  <div style={{ flex: prevMonthTotal, background: "rgba(255,255,255,0.15)", borderRadius: "100px 0 0 100px" }} />
-                  <div style={{ flex: currentMonthDone, background: "linear-gradient(90deg,#e8ff47,#b8ff00)", borderRadius: "0 100px 100px 0" }} />
-                </div>
-              </div>
-
-              <div style={{ textAlign: "center", paddingTop: 4 }}>
-                {currentMonthDone >= prevMonthTotal ? (
-                  <p style={{ fontSize: 12, color: "#47ffb8" }}>
-                    ↑ +{(currentMonthDone - prevMonthTotal).toLocaleString()} más que {MONTH_NAMES[prevMonth].toLowerCase()}
-                    {monthDiffPct > 0 && <span style={{ marginLeft: 6 }}>({monthDiffPct > 0 ? "+" : ""}{monthDiffPct}%)</span>}
-                  </p>
-                ) : (
-                  <p style={{ fontSize: 12, color: "#ff8c47" }}>
-                    Llevas {currentMonthDaysElapsed} de {currentMonthDaysTotal} días de {MONTH_NAMES[currentMonth].toLowerCase()}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Gráfico barras */}
-            <div className="stat-card" style={{ marginBottom: 12 }}>
-              <p style={{ fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>Progreso por mes</p>
-              <div style={{ position: "relative", height: 80 }}>
-                {Array.from({ length: 12 }, (_, month) => {
-                  const [mStart, mEnd] = getMonthDayRange(month, YEAR);
-                  const pushups = getPushupsInRange(mStart, Math.min(mEnd, TODAY));
-                  const maxVal = getPushupsInRange(...getMonthDayRange(11, YEAR));
-                  const height = Math.max(mStart <= TODAY ? 4 : 0, (pushups / maxVal) * 70);
-                  const isCurrent = month === currentMonth;
-                  const isPast = mEnd < TODAY;
-                  return (
-                    <div key={month} style={{
-                      position: "absolute", bottom: 0,
-                      left: `${(month / 12) * 100}%`,
-                      width: `${100 / 12 - 1}%`,
-                      height: `${height}px`,
-                      background: isCurrent ? "linear-gradient(180deg,#e8ff47,rgba(232,255,71,0.3))" : isPast ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.05)",
-                      borderRadius: "3px 3px 0 0",
-                      transition: "height 0.5s ease",
-                    }} />
-                  );
-                })}
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
-                {["E","F","M","A","M","J","J","A","S","O","N","D"].map((m, i) => (
-                  <span key={i} style={{ fontSize: 9, color: i === currentMonth ? "#e8ff47" : "#444", width: `${100 / 12}%`, textAlign: "center" }}>{m}</span>
-                ))}
-              </div>
-            </div>
-
-            {/* Mapa de días completo */}
-            <div className="stat-card">
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                <p style={{ fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: "0.1em" }}>Días completados</p>
-                <p style={{ fontSize: 10, color: "#e8ff47" }}>{TODAY}/365</p>
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
-                {Array.from({ length: 365 }, (_, i) => i + 1).map(d => (
-                  <div key={d} className="day-dot" style={{ background: d <= TODAY ? "#e8ff47" : "rgba(255,255,255,0.05)" }} />
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── TAB HISTORIAL ── */}
-        {activeTab === "historial" && (
-          <div style={{ padding: "0 20px" }} className="slide-up">
-            <p style={{ fontSize: 11, color: "#555", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 16 }}>Últimos 14 días</p>
-            {Array.from({ length: Math.min(14, TODAY) }, (_, i) => {
-              const d = TODAY - i;
-              const s = getSeries(d);
+        {/* 3-day strip */}
+        <div style={{ padding: "0 14px 12px" }}>
+          <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 12, padding: "8px 12px", display: "flex", gap: 6 }}>
+            {[TODAY - 1, TODAY, TODAY + 1].filter(d => d >= 1 && d <= 365).map(d => {
+              const e = getExercise(d), isToday = d === TODAY;
               return (
-                <div key={d} style={{ display: "flex", alignItems: "center", padding: "14px 0", borderBottom: "1px solid rgba(255,255,255,0.05)", gap: 16 }}>
-                  <div style={{ width: 36, textAlign: "center" }}>
-                    <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: "#e8ff47", lineHeight: 1 }}>{d}</p>
-                    <p style={{ fontSize: 9, color: "#444" }}>día</p>
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ fontSize: 14, fontWeight: 500, color: "#f0ede8" }}>{d} flexiones</p>
-                    <p style={{ fontSize: 11, color: "#444", marginTop: 2 }}>{s[0]} + {s[1]} + {s[2]} reps</p>
-                  </div>
-                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(232,255,71,0.12)", border: "1px solid rgba(232,255,71,0.35)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: "#e8ff47" }}>✓</div>
+                <div key={d} style={{ flex: 1, textAlign: "center", padding: "7px 3px", borderRadius: 9, background: isToday ? e.color2 : "transparent", border: `1px solid ${isToday ? e.border : "transparent"}` }}>
+                  <p style={{ fontSize: 9, color: isToday ? e.color1 : "#444", textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 1 }}>{d === TODAY ? "HOY" : d === TODAY - 1 ? "AYER" : "MAÑANA"}</p>
+                  <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color: isToday ? e.color1 : "#555", lineHeight: 1 }}>{d}</p>
+                  <p style={{ fontSize: 9, color: isToday ? e.color1 : "#444", marginTop: 1 }}>{e.name}</p>
                 </div>
               );
             })}
           </div>
+        </div>
+
+        {/* Milestones */}
+        {unlockedMilestones.length > 0 && (
+          <div style={{ padding: "0 14px 12px" }}>
+            <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
+              {unlockedMilestones.map((m, idx) => {
+                const d = getMilestoneDay(m.reps);
+                return (
+                  <div key={m.reps} className="badge-pop" style={{ animationDelay: `${idx * 0.1}s`, flexShrink: 0, background: "rgba(71,255,184,0.07)", border: "1px solid rgba(71,255,184,0.25)", borderRadius: 12, padding: "8px 12px", textAlign: "center", minWidth: 72 }}>
+                    <p style={{ fontSize: 18, marginBottom: 2 }}>{m.icon}</p>
+                    <p style={{ fontSize: 11, fontWeight: 500, color: "#47ffb8" }}>{m.label}</p>
+                    <p style={{ fontSize: 9, color: "#444", marginTop: 1 }}>{getDayDate(d)}</p>
+                  </div>
+                );
+              })}
+              {nextMilestone && (
+                <div style={{ flexShrink: 0, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, padding: "8px 12px", textAlign: "center", minWidth: 72, opacity: 0.5 }}>
+                  <p style={{ fontSize: 18, marginBottom: 2 }}>🔒</p>
+                  <p style={{ fontSize: 11, color: "#555" }}>{nextMilestone.label}</p>
+                  <p style={{ fontSize: 9, color: "#333", marginTop: 1 }}>{(nextMilestone.reps - totalDone).toLocaleString()} reps</p>
+                </div>
+              )}
+            </div>
+          </div>
         )}
 
+        {/* Tabs */}
+        <div style={{ display: "flex", gap: 2, padding: "0 14px 12px" }}>
+          {[["hoy", "Hoy"], ["stats", "Stats"], ["historial", "Historial"]].map(([k, l]) => (
+            <button key={k} className="tab-btn" onClick={() => setActiveTab(k)} style={activeTab === k ? { background: todayEx.color1, color: "#0a0a0f" } : {}}>{l}</button>
+          ))}
+        </div>
+
+        <div className="slide-up">
+
+          {/* TAB HOY */}
+          {activeTab === "hoy" && (
+            <div style={{ padding: "0 14px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 9 }}>
+                <p style={{ fontSize: 11, color: "#555", letterSpacing: ".12em", textTransform: "uppercase" }}>Series recomendadas</p>
+                <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                  <span style={{ fontSize: 11, color: "#555" }}>Series:</span>
+                  <button className="sc-btn" onClick={() => setSeriesCount(c => Math.max(2, c - 1))}>−</button>
+                  <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color: todayEx.color1, minWidth: 18, textAlign: "center" }}>{seriesCount}</span>
+                  <button className="sc-btn" onClick={() => setSeriesCount(c => Math.min(6, c + 1))}>+</button>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 5, marginBottom: 12, flexWrap: "wrap" }}>
+                {series.map((s, i) => (
+                  <div key={i} className="series-card" style={i === 0 ? { borderColor: viewEx.border, background: viewEx.color2 } : i === 1 ? { borderColor: "rgba(71,255,184,0.2)", background: "rgba(71,255,184,0.04)" } : {}}>
+                    <p style={{ fontSize: 9, color: i === 0 ? viewEx.color1 : i === 1 ? "#47ffb8" : "#444", letterSpacing: ".07em", textTransform: "uppercase", marginBottom: 3 }}>Serie {i + 1}</p>
+                    <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: seriesCount > 4 ? 28 : 36, color: i === 0 ? viewEx.color1 : i === 1 ? "#47ffb8" : "#888", lineHeight: 1 }}>{s}</p>
+                    <p style={{ fontSize: 9, color: "#444", marginTop: 2 }}>reps</p>
+                  </div>
+                ))}
+              </div>
+              <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 11, padding: "9px 13px", marginBottom: 10, border: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between" }}>
+                <div><span style={{ fontSize: 11, color: "#555" }}>TOTAL </span><span style={{ fontSize: 11, color: "#47ffb8" }}>{series.join("+")}={series.reduce((a, b) => a + b, 0)}</span></div>
+                <div><span style={{ fontSize: 11, color: "#555" }}>DESCANSO </span><span style={{ fontSize: 11, color: todayEx.color1 }}>3 min</span></div>
+              </div>
+              <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+                <button onClick={() => setShowWarmup(true)} style={{ flex: 1, padding: 13, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: ".08em", color: "#f0ede8", cursor: "pointer" }}>🧘 CALENTAR</button>
+                <button onClick={() => setShowTimer(true)} style={{ flex: 1, padding: 13, background: viewEx.color2, border: `1px solid ${viewEx.border}`, borderRadius: 12, fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: ".08em", color: viewEx.color1, cursor: "pointer" }}>⏱ DESCANSO</button>
+              </div>
+              <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 13, padding: 13, border: "1px solid rgba(255,255,255,0.07)" }}>
+                <p style={{ fontSize: 11, color: "#555", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 9 }}>Ver otro día</p>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <button onClick={() => setCurrentDay(d => Math.max(1, d - 1))} style={{ background: "rgba(255,255,255,0.07)", border: "none", color: "#f0ede8", width: 32, height: 32, borderRadius: 7, cursor: "pointer", fontSize: 15 }}>‹</button>
+                  <div style={{ flex: 1, textAlign: "center" }}>
+                    <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 24, color: "#f0ede8" }}>Día {currentDay}</span>
+                    <span style={{ fontSize: 10, color: "#555", display: "block" }}>{currentDay} {getExercise(currentDay).name} · {getSeries(currentDay, seriesCount).join("+")}</span>
+                  </div>
+                  <button onClick={() => setCurrentDay(d => Math.min(365, d + 1))} style={{ background: "rgba(255,255,255,0.07)", border: "none", color: "#f0ede8", width: 32, height: 32, borderRadius: 7, cursor: "pointer", fontSize: 15 }}>›</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB STATS */}
+          {activeTab === "stats" && (
+            <div style={{ padding: "0 14px" }}>
+              <p style={{ fontSize: 11, color: "#555", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 9 }}>Resumen global</p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9, marginBottom: 12 }}>
+                {[
+                  { label: "Reps hechas", val: totalDone.toLocaleString(), color: todayEx.color1, sub: "todas las disciplinas" },
+                  { label: "Reps restantes", val: getTotalRemaining(TODAY).toLocaleString(), color: "#47ffb8", sub: "hasta el 31 dic" },
+                  { label: "Total año", val: TOTAL_ALL.toLocaleString(), color: "#f0ede8", sub: "todas las disciplinas" },
+                  { label: "Media diaria", val: Math.round(totalDone / TODAY), color: "#ff8c47", sub: "hasta hoy" },
+                ].map((s, i) => (
+                  <div key={i} className="stat-card">
+                    <p style={{ fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 5 }}>{s.label}</p>
+                    <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 32, color: s.color, lineHeight: 1 }}>{s.val}</p>
+                    <p style={{ fontSize: 10, color: "#444", marginTop: 2 }}>{s.sub}</p>
+                  </div>
+                ))}
+              </div>
+
+              <p style={{ fontSize: 11, color: "#555", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 9 }}>Por ejercicio</p>
+              <div className="stat-card" style={{ marginBottom: 12, padding: "6px 14px" }}>
+                {EXERCISES.map((e, i) => {
+                  const done = exStats.doneReps[i], total = exStats.totalReps[i], pct = total > 0 ? Math.round(done / total * 100) : 0;
+                  return (
+                    <div key={i} className="ex-row">
+                      <div style={{ width: 9, height: 9, borderRadius: 2, background: e.color1, flexShrink: 0, marginRight: 11 }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
+                          <span style={{ fontSize: 13, fontWeight: 500, color: "#f0ede8" }}>{e.name}</span>
+                          <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, color: e.color1 }}>{done.toLocaleString()}<span style={{ fontSize: 10, color: "#444" }}> / {total.toLocaleString()}</span></span>
+                        </div>
+                        <div style={{ height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 100, overflow: "hidden", marginBottom: 3 }}>
+                          <div style={{ height: "100%", width: `${pct}%`, background: e.color1, borderRadius: 100 }} />
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between" }}>
+                          <span style={{ fontSize: 9, color: "#444" }}>{exStats.counts[i]} días · quedan {exStats.remainingReps[i].toLocaleString()}</span>
+                          <span style={{ fontSize: 9, color: e.color1 }}>{pct}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <p style={{ fontSize: 11, color: "#555", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 9 }}>Curva anual de reps</p>
+              <div className="stat-card" style={{ marginBottom: 12 }}>
+                <CurveChart todayEx={todayEx} />
+                <div style={{ display: "flex", gap: 12, marginTop: 8, justifyContent: "center" }}>
+                  <span style={{ fontSize: 10, color: todayEx.color1, display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 16, height: 2, background: todayEx.color1, display: "inline-block", borderRadius: 2 }} />Recorrido hecho</span>
+                  <span style={{ fontSize: 10, color: "#444", display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 16, height: 2, background: "rgba(255,255,255,0.15)", display: "inline-block", borderRadius: 2 }} />Resto del año</span>
+                  <span style={{ fontSize: 10, color: "#47ffb8", display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 6, height: 6, background: "#47ffb8", borderRadius: "50%", display: "inline-block" }} />Hitos</span>
+                </div>
+              </div>
+
+              <div className="stat-card" style={{ marginBottom: 12, background: "rgba(71,255,184,0.03)", borderColor: "rgba(71,255,184,0.15)" }}>
+                <p style={{ fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 10 }}>Proyección fin de año</p>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 10 }}>
+                  <div><p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 32, color: "#47ffb8", lineHeight: 1 }}>{TOTAL_ALL.toLocaleString()}</p><p style={{ fontSize: 10, color: "#444", marginTop: 2 }}>reps el 31 dic</p></div>
+                  <div style={{ textAlign: "right" }}><p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: "#f0ede8" }}>{365 - TODAY} días</p><p style={{ fontSize: 10, color: "#444" }}>restantes</p></div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <span style={{ fontSize: 10, color: "#555", whiteSpace: "nowrap" }}>1 ene</span>
+                  <div style={{ flex: 1, height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 100, overflow: "hidden" }}>
+                    <div style={{ width: `${(TODAY / 365 * 100)}%`, height: "100%", background: `linear-gradient(90deg,${todayEx.color1},#47ffb8)`, borderRadius: 100 }} />
+                  </div>
+                  <span style={{ fontSize: 10, color: "#47ffb8", whiteSpace: "nowrap" }}>31 dic</span>
+                </div>
+                <p style={{ fontSize: 11, color: "#47ffb8", marginTop: 7, textAlign: "center" }}>Vas al 100% del reto ✓</p>
+              </div>
+
+              <div className="stat-card" style={{ marginBottom: 12 }}>
+                <p style={{ fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 10 }}>Comparativa mensual</p>
+                <div style={{ display: "flex", gap: 7, marginBottom: 9 }}>
+                  <div style={{ flex: 1, background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: 11, border: "1px solid rgba(255,255,255,0.06)" }}>
+                    <p style={{ fontSize: 10, color: "#444", marginBottom: 3, textTransform: "uppercase" }}>{MONTH_NAMES[prevMonth]}</p>
+                    <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 24, color: "#666", lineHeight: 1 }}>{pmtotal.toLocaleString()}</p>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 22, fontSize: 10, color: "#333", fontWeight: 600 }}>VS</div>
+                  <div style={{ flex: 1, background: todayEx.color2, borderRadius: 10, padding: 11, border: `1px solid ${todayEx.border}` }}>
+                    <p style={{ fontSize: 10, color: todayEx.color1, marginBottom: 3, textTransform: "uppercase" }}>{MONTH_NAMES[currentMonth]}</p>
+                    <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 24, color: todayEx.color1, lineHeight: 1 }}>{cmdone.toLocaleString()}</p>
+                  </div>
+                </div>
+                <div style={{ height: 5, borderRadius: 100, overflow: "hidden", display: "flex", gap: 2, marginBottom: 7 }}>
+                  <div style={{ flex: pmtotal, background: "rgba(255,255,255,0.15)", borderRadius: "100px 0 0 100px" }} />
+                  <div style={{ flex: cmdone, background: todayEx.color1, borderRadius: "0 100px 100px 0" }} />
+                </div>
+                <p style={{ fontSize: 11, color: cmdone >= pmtotal ? "#47ffb8" : "#ff8c47", textAlign: "center" }}>
+                  {cmdone >= pmtotal ? `↑ +${(cmdone - pmtotal).toLocaleString()} más que ${MONTH_NAMES[prevMonth].toLowerCase()} (${mdiffpct > 0 ? "+" : ""}${mdiffpct}%)` : `Llevas ${Math.min(TODAY - cmS + 1, cmE - cmS + 1)} de ${cmE - cmS + 1} días de ${MONTH_NAMES[currentMonth].toLowerCase()}`}
+                </p>
+              </div>
+
+              <div className="stat-card">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 9 }}>
+                  <p style={{ fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: ".1em" }}>Mapa del año</p>
+                  <div style={{ display: "flex", gap: 7 }}>
+                    {EXERCISES.map(e => <span key={e.name} style={{ fontSize: 10, color: e.color1, display: "flex", alignItems: "center", gap: 3 }}><span style={{ width: 7, height: 7, borderRadius: 1, background: e.color1, display: "inline-block" }} />{e.short}</span>)}
+                  </div>
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
+                  {Array.from({ length: 365 }, (_, i) => i + 1).map(d => {
+                    const e = getExercise(d);
+                    return <div key={d} style={{ width: 7, height: 7, borderRadius: 1, background: d <= TODAY ? e.color1 : "rgba(255,255,255,0.05)", display: "inline-block", margin: 1 }} />;
+                  })}
+                </div>
+                <p style={{ fontSize: 10, color: "#444", marginTop: 8, textAlign: "center" }}>{TODAY} días completados · {365 - TODAY} restantes</p>
+              </div>
+            </div>
+          )}
+
+          {/* TAB HISTORIAL */}
+          {activeTab === "historial" && (
+            <div style={{ padding: "0 14px" }}>
+              <p style={{ fontSize: 11, color: "#555", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 12 }}>Últimos 14 días</p>
+              {Array.from({ length: Math.min(14, TODAY) }, (_, i) => {
+                const d = TODAY - i, e = getExercise(d), s = getSeries(d, seriesCount);
+                return (
+                  <div key={d} style={{ display: "flex", alignItems: "center", padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.05)", gap: 11 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: 2, background: e.color1, flexShrink: 0 }} />
+                    <div style={{ width: 28, textAlign: "center" }}>
+                      <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 19, color: e.color1, lineHeight: 1 }}>{d}</p>
+                      <p style={{ fontSize: 9, color: "#444" }}>día</p>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontSize: 13, fontWeight: 500, color: "#f0ede8" }}>{d} {e.name}</p>
+                      <p style={{ fontSize: 10, color: "#444", marginTop: 1 }}>{s.join("+")} reps</p>
+                    </div>
+                    <div style={{ width: 23, height: 23, borderRadius: "50%", background: e.color2, border: `1px solid ${e.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: e.color1 }}>✓</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+        </div>
       </div>
     </div>
   );
