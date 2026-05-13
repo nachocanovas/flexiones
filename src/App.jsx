@@ -46,6 +46,9 @@ const EXERCISES = [
   },
 ];
 
+// Deportes sugeridos (el usuario también puede escribir el suyo)
+const SPORT_SUGGESTIONS = ["Natación", "Running", "Golf", "Ciclismo", "Yoga", "Padel", "Tenis", "Senderismo", "Surf", "Boxeo"];
+
 const getExerciseIdx = (day) => {
   if (day < START_DAY) return 0;
   const o = day - START_DAY;
@@ -66,9 +69,13 @@ const getExerciseStats = (upToDay) => {
   return { doneReps, totalReps, remainingReps: totalReps.map((t, i) => t - doneReps[i]), counts };
 };
 
-const getSeries = (total, count) => {
-  const ratios = { 2: [0.55, 0.45], 3: [0.40, 0.33, 0.27], 4: [0.32, 0.27, 0.23, 0.18], 5: [0.28, 0.23, 0.20, 0.16, 0.13], 6: [0.24, 0.20, 0.17, 0.14, 0.13, 0.12] };
-  const r = ratios[count] || ratios[3];
+const getSeries = (total, count, balanced = false) => {
+  // Ratios piramidales (Flexiones) — más diferencia entre series
+  const pyramidRatios = { 2: [0.55, 0.45], 3: [0.40, 0.33, 0.27], 4: [0.32, 0.27, 0.23, 0.18], 5: [0.28, 0.23, 0.20, 0.16, 0.13], 6: [0.24, 0.20, 0.17, 0.14, 0.13, 0.12] };
+  // Ratios equilibrados (Sentadillas y Abdominales) — diferencia mínima entre series
+  const balancedRatios = { 2: [0.52, 0.48], 3: [0.35, 0.33, 0.32], 4: [0.27, 0.26, 0.25, 0.22], 5: [0.22, 0.21, 0.20, 0.19, 0.18], 6: [0.18, 0.18, 0.17, 0.17, 0.16, 0.14] };
+  const table = balanced ? balancedRatios : pyramidRatios;
+  const r = table[count] || table[3];
   const arr = r.map((x, i) => i < r.length - 1 ? Math.round(total * x) : 0);
   arr[arr.length - 1] = total - arr.slice(0, -1).reduce((a, b) => a + b, 0);
   return arr;
@@ -92,6 +99,202 @@ const MOTIVATIONAL = [
 const MONTH_NAMES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
 const REST_SECONDS = 180;
+
+// ── STORAGE HELPERS ────────────────────────────────────────────
+const STORAGE_KEY = "flexiones365_daylog";
+
+const loadDayLog = () => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+};
+
+const saveDayLog = (log) => {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(log)); } catch {}
+};
+
+// dayLog structure: { [dayNumber]: { type: "done" | "alt" | "fail", sport?: string } }
+// Si un día pasado no tiene registro, se considera "done" (Opción A: optimista)
+const getDayStatus = (day, log) => {
+  if (day > TODAY) return null; // días futuros no tienen estado
+  return log[day] || { type: "done" }; // sin registro = completado
+};
+
+// ── DAY LOG MODAL ──────────────────────────────────────────────
+function DayLogModal({ day, exercise, currentLog, onSave, onClose }) {
+  // Si currentLog es el default "done" implícito (sin entrada real), arrancamos en null para que el usuario elija
+  const hasExplicitLog = currentLog && currentLog._explicit;
+  const [mode, setMode] = useState(hasExplicitLog ? currentLog.type : null);
+  const [sport, setSport] = useState(hasExplicitLog ? (currentLog.sport || "") : "");
+  const [customInput, setCustomInput] = useState(false);
+
+  const isPast = day < TODAY;
+
+  const handleSave = () => {
+    if (!mode) { onClose(); return; }
+    onSave(day, { type: mode, sport: mode === "alt" ? sport.trim() : undefined, _explicit: true });
+    onClose();
+  };
+
+  const handleClear = () => {
+    onSave(day, null); // vuelve al estado implícito "done"
+    onClose();
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center", backdropFilter: "blur(8px)" }}>
+      <div style={{ background: "#111118", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "28px 28px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 430 }}>
+
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
+          <div>
+            <p style={{ fontSize: 10, color: "#555", letterSpacing: ".15em", textTransform: "uppercase", marginBottom: 2 }}>
+              {isPast ? `Día ${day} · pasado` : `Día ${day} · hoy`}
+            </p>
+            <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 24, color: "#f0ede8", lineHeight: 1 }}>¿Qué hiciste ese día?</p>
+          </div>
+          <div style={{ background: exercise.color2, border: `1px solid ${exercise.border}`, borderRadius: 10, padding: "5px 12px" }}>
+            <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, color: exercise.color1 }}>{day} {exercise.name}</span>
+          </div>
+        </div>
+
+        {/* Opciones principales */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
+
+          {/* Hecho */}
+          <button
+            onClick={() => { setMode("done"); setCustomInput(false); }}
+            style={{
+              padding: "16px 18px", borderRadius: 14, border: `1px solid ${mode === "done" ? exercise.border : "rgba(255,255,255,0.08)"}`,
+              background: mode === "done" ? exercise.color2 : "rgba(255,255,255,0.03)",
+              cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 14,
+              transition: "all .2s"
+            }}
+          >
+            <span style={{ fontSize: 28 }}>✅</span>
+            <div>
+              <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color: mode === "done" ? exercise.color1 : "#f0ede8", lineHeight: 1 }}>ENTRENAMIENTO COMPLETADO</p>
+              <p style={{ fontSize: 12, color: "#555", marginTop: 3 }}>{day} {exercise.name} hechas</p>
+            </div>
+          </button>
+
+          {/* Otro deporte */}
+          <button
+            onClick={() => { setMode("alt"); setCustomInput(false); }}
+            style={{
+              padding: "16px 18px", borderRadius: 14, border: `1px solid ${mode === "alt" ? "rgba(71,255,184,0.4)" : "rgba(255,255,255,0.08)"}`,
+              background: mode === "alt" ? "rgba(71,255,184,0.05)" : "rgba(255,255,255,0.03)",
+              cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 14,
+              transition: "all .2s"
+            }}
+          >
+            <span style={{ fontSize: 28 }}>🏃</span>
+            <div>
+              <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color: mode === "alt" ? "#47ffb8" : "#f0ede8", lineHeight: 1 }}>OTRO DEPORTE</p>
+              <p style={{ fontSize: 12, color: "#555", marginTop: 3 }}>Natación, golf, running...</p>
+            </div>
+          </button>
+
+          {/* Día fallado */}
+          <button
+            onClick={() => { setMode("fail"); setCustomInput(false); setSport(""); }}
+            style={{
+              padding: "16px 18px", borderRadius: 14, border: `1px solid ${mode === "fail" ? "rgba(255,80,80,0.4)" : "rgba(255,255,255,0.08)"}`,
+              background: mode === "fail" ? "rgba(255,80,80,0.05)" : "rgba(255,255,255,0.03)",
+              cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 14,
+              transition: "all .2s"
+            }}
+          >
+            <span style={{ fontSize: 28 }}>❌</span>
+            <div>
+              <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color: mode === "fail" ? "#ff5050" : "#f0ede8", lineHeight: 1 }}>DÍA FALLADO</p>
+              <p style={{ fontSize: 12, color: "#555", marginTop: 3 }}>No entrené este día</p>
+            </div>
+          </button>
+        </div>
+
+        {/* Sub-panel deporte */}
+        {mode === "alt" && (
+          <div style={{ marginBottom: 20 }}>
+            <p style={{ fontSize: 11, color: "#555", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 10 }}>¿Qué deporte?</p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 12 }}>
+              {SPORT_SUGGESTIONS.map(s => (
+                <button
+                  key={s}
+                  onClick={() => { setSport(s); setCustomInput(false); }}
+                  style={{
+                    padding: "7px 14px", borderRadius: 20, border: `1px solid ${sport === s ? "rgba(71,255,184,0.5)" : "rgba(255,255,255,0.1)"}`,
+                    background: sport === s ? "rgba(71,255,184,0.1)" : "rgba(255,255,255,0.04)",
+                    color: sport === s ? "#47ffb8" : "#888", fontSize: 12, cursor: "pointer",
+                    fontFamily: "'DM Sans', sans-serif", transition: "all .15s"
+                  }}
+                >
+                  {s}
+                </button>
+              ))}
+              <button
+                onClick={() => { setCustomInput(true); setSport(""); }}
+                style={{
+                  padding: "7px 14px", borderRadius: 20, border: `1px solid ${customInput ? "rgba(71,255,184,0.5)" : "rgba(255,255,255,0.1)"}`,
+                  background: customInput ? "rgba(71,255,184,0.1)" : "rgba(255,255,255,0.04)",
+                  color: customInput ? "#47ffb8" : "#888", fontSize: 12, cursor: "pointer",
+                  fontFamily: "'DM Sans', sans-serif"
+                }}
+              >
+                ✏️ Otro...
+              </button>
+            </div>
+            {customInput && (
+              <input
+                autoFocus
+                value={sport}
+                onChange={e => setSport(e.target.value)}
+                placeholder="Escribe el deporte..."
+                style={{
+                  width: "100%", padding: "12px 16px", background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(71,255,184,0.3)", borderRadius: 12, color: "#f0ede8",
+                  fontSize: 14, fontFamily: "'DM Sans', sans-serif", outline: "none"
+                }}
+              />
+            )}
+          </div>
+        )}
+
+        {/* Botones acción */}
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={handleSave}
+            disabled={!mode}
+            style={{
+              flex: 2, padding: 15, border: "none", borderRadius: 14,
+              fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, letterSpacing: ".1em", cursor: mode ? "pointer" : "default",
+              background: mode === "done" ? `linear-gradient(135deg,${exercise.color1},${exercise.color1}cc)`
+                : mode === "alt" ? "linear-gradient(135deg,#47ffb8,#00d4a0)"
+                : mode === "fail" ? "rgba(255,80,80,0.2)"
+                : "rgba(255,255,255,0.05)",
+              color: mode === "done" ? (getExerciseIdx(day) === 0 ? "#0a0a0f" : "#f0ede8")
+                : mode === "alt" ? "#0a0a0f"
+                : mode === "fail" ? "#ff5050"
+                : "#333",
+              transition: "all .2s", opacity: mode ? 1 : 0.4
+            }}
+          >
+            GUARDAR
+          </button>
+          {hasExplicitLog && (
+            <button onClick={handleClear} style={{ flex: 1, padding: 15, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, color: "#555", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>
+              Restablecer
+            </button>
+          )}
+          <button onClick={onClose} style={{ flex: 1, padding: 15, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, color: "#555", cursor: "pointer", fontSize: 12 }}>
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── WARMUP WIZARD ──────────────────────────────────────────────
 function WarmupModal({ exerciseIdx, onClose }) {
@@ -380,18 +583,30 @@ function StatsExercise({ idx, exStats }) {
   );
 }
 
+// ── HELPER: badge de estado de día ────────────────────────────
+function DayBadge({ log, color1 }) {
+  if (!log) return null;
+  if (log.type === "done") return <span style={{ fontSize: 11, color: color1 }}>✓</span>;
+  if (log.type === "alt") return <span style={{ fontSize: 11 }}>🏃</span>;
+  if (log.type === "fail") return <span style={{ fontSize: 11 }}>✗</span>;
+  return null;
+}
+
 // ── MAIN APP ───────────────────────────────────────────────────
 export default function App() {
   const [currentDay, setCurrentDay] = useState(TODAY);
   const [activeTab, setActiveTab] = useState("hoy");
-  const [seriesCount, setSeriesCount] = useState(3);
+  const [seriesCount, setSeriesCount] = useState(5); // ← CAMBIADO: 3 → 5
   const [statsFilter, setStatsFilter] = useState("all");
   const [showTimer, setShowTimer] = useState(false);
   const [showWarmup, setShowWarmup] = useState(false);
+  const [showDayLog, setShowDayLog] = useState(false);
+  const [logDay, setLogDay] = useState(TODAY); // día que se está editando en el modal
+  const [dayLog, setDayLog] = useState(() => loadDayLog());
 
   const todayEx = getExercise(TODAY);
   const viewEx = getExercise(currentDay);
-  const series = getSeries(currentDay, seriesCount);
+  const series = getSeries(currentDay, seriesCount, getExerciseIdx(currentDay) !== 0);
   const totalDone = getTotalDone(TODAY);
   const progressPct = (totalDone / TOTAL_ALL * 100).toFixed(1);
   const quote = MOTIVATIONAL[TODAY % MOTIVATIONAL.length];
@@ -404,12 +619,34 @@ export default function App() {
   const [pmS, pmE] = getMonthDayRange(prevMonth, currentMonth === 0 ? YEAR - 1 : YEAR);
   const pmtotal = getPushupsInRange(pmS, pmE);
 
+  const todayLogEntry = getDayStatus(TODAY, dayLog);
+  const isExplicitToday = !!dayLog[TODAY];
+
+  const handleSaveDayLog = (day, entry) => {
+    const newLog = { ...dayLog };
+    if (entry === null) { delete newLog[day]; }
+    else { newLog[day] = entry; }
+    setDayLog(newLog);
+    saveDayLog(newLog);
+  };
+
   const subFilters = [
     { key: "all", label: "Todos", color: null },
     { key: "0", label: "Flexiones", color: EXERCISES[0].color1 },
     { key: "1", label: "Sentadillas", color: EXERCISES[1].color1 },
     { key: "2", label: "Abdominales", color: EXERCISES[2].color1 },
   ];
+
+  // Status visual del día de hoy
+  const todayStatusColor = todayLogEntry?.type === "done" ? todayEx.color1
+    : todayLogEntry?.type === "alt" ? "#47ffb8"
+    : todayLogEntry?.type === "fail" ? "#ff5050"
+    : null;
+
+  const todayStatusLabel = todayLogEntry?.type === "done" ? "✓ Completado"
+    : todayLogEntry?.type === "alt" ? `🏃 ${todayLogEntry.sport || "Otro deporte"}`
+    : todayLogEntry?.type === "fail" ? "✗ Día fallado"
+    : null;
 
   return (
     <div style={{ minHeight: "100vh", background: "#0a0a0f", fontFamily: "'DM Sans', system-ui, sans-serif", color: "#f0ede8" }}>
@@ -420,6 +657,8 @@ export default function App() {
         .series-card{border-radius:14px;padding:14px;flex:1;text-align:center;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.04);}
         .sc-btn{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);color:#f0ede8;width:34px;height:34px;border-radius:8px;cursor:pointer;font-size:17px;}
         .sub-btn{background:none;border:1px solid rgba(255,255,255,0.1);color:#555;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;padding:8px 14px;border-radius:20px;transition:all .2s;white-space:nowrap;}
+        .log-btn{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#666;font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;padding:10px 16px;border-radius:12px;transition:all .2s;display:flex;align-items:center;gap:7px;}
+        .log-btn:hover{border-color:rgba(255,255,255,0.2);color:#aaa;}
         @keyframes slideUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
         .slide-up{animation:slideUp .3s ease forwards;}
         ::-webkit-scrollbar{width:0;}
@@ -427,6 +666,15 @@ export default function App() {
 
       {showTimer && <TimerModal color={todayEx.timerColor} onClose={() => setShowTimer(false)} />}
       {showWarmup && <WarmupModal exerciseIdx={getExerciseIdx(TODAY)} onClose={() => setShowWarmup(false)} />}
+      {showDayLog && (
+        <DayLogModal
+          day={logDay}
+          exercise={getExercise(logDay)}
+          currentLog={dayLog[logDay] || null}
+          onSave={handleSaveDayLog}
+          onClose={() => setShowDayLog(false)}
+        />
+      )}
 
       <div style={{ maxWidth: 430, margin: "0 auto", padding: "0 0 60px" }}>
 
@@ -471,11 +719,19 @@ export default function App() {
           <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 14, padding: "10px 14px", display: "flex", gap: 8 }}>
             {[TODAY - 1, TODAY, TODAY + 1].filter(d => d >= 1 && d <= 365).map(d => {
               const e = getExercise(d), isToday = d === TODAY;
+              const dLog = getDayStatus(d, dayLog);
               return (
                 <div key={d} style={{ flex: 1, textAlign: "center", padding: "10px 4px", borderRadius: 10, background: isToday ? e.color2 : "transparent", border: `1px solid ${isToday ? e.border : "transparent"}` }}>
                   <p style={{ fontSize: 9, color: isToday ? e.color1 : "#444", textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 2 }}>{d === TODAY ? "HOY" : d === TODAY - 1 ? "AYER" : "MAÑANA"}</p>
                   <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: isToday ? e.color1 : "#555", lineHeight: 1 }}>{d}</p>
                   <p style={{ fontSize: 9, color: isToday ? e.color1 : "#444", marginTop: 2 }}>{e.name}</p>
+                  {dLog && (
+                    <div style={{ marginTop: 3 }}>
+                      {dLog.type === "done" && <span style={{ fontSize: 9, color: e.color1 }}>✓</span>}
+                      {dLog.type === "alt" && <span style={{ fontSize: 9 }}>🏃</span>}
+                      {dLog.type === "fail" && <span style={{ fontSize: 9, color: "#ff5050" }}>✗</span>}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -494,6 +750,55 @@ export default function App() {
           {/* ── TAB HOY ── */}
           {activeTab === "hoy" && (
             <div style={{ padding: "0 20px" }}>
+
+              {/* ── REGISTRO DEL DÍA ── */}
+              <div style={{ marginBottom: 20 }}>
+                {isExplicitToday ? (
+                  <div style={{
+                    background: todayLogEntry.type === "done" ? todayEx.color2
+                      : todayLogEntry.type === "alt" ? "rgba(71,255,184,0.05)"
+                      : "rgba(255,80,80,0.05)",
+                    border: `1px solid ${todayLogEntry.type === "done" ? todayEx.border
+                      : todayLogEntry.type === "alt" ? "rgba(71,255,184,0.3)"
+                      : "rgba(255,80,80,0.25)"}`,
+                    borderRadius: 14, padding: "14px 16px",
+                    display: "flex", alignItems: "center", justifyContent: "space-between"
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ fontSize: 22 }}>
+                        {todayLogEntry.type === "done" ? "✅" : todayLogEntry.type === "alt" ? "🏃" : "❌"}
+                      </span>
+                      <div>
+                        <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color: todayStatusColor, lineHeight: 1 }}>{todayStatusLabel}</p>
+                        {todayLogEntry.type === "alt" && todayLogEntry.sport && (
+                          <p style={{ fontSize: 11, color: "#47ffb8", opacity: 0.7, marginTop: 2 }}>{todayLogEntry.sport}</p>
+                        )}
+                      </div>
+                    </div>
+                    <button onClick={() => { setLogDay(TODAY); setShowDayLog(true); }} className="log-btn" style={{ padding: "7px 12px" }}>
+                      Editar
+                    </button>
+                  </div>
+                ) : (
+                  /* Sin registro explícito: se asume completado, pero se puede anotar algo diferente */
+                  <button onClick={() => { setLogDay(TODAY); setShowDayLog(true); }} style={{
+                    width: "100%", padding: "14px 16px", background: todayEx.color2,
+                    border: `1px dashed ${todayEx.border}`, borderRadius: 14,
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    cursor: "pointer", transition: "all .2s"
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ fontSize: 22 }}>✅</span>
+                      <div style={{ textAlign: "left" }}>
+                        <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color: todayEx.color1, lineHeight: 1 }}>COMPLETADO POR DEFECTO</p>
+                        <p style={{ fontSize: 11, color: todayEx.color1, opacity: 0.5, marginTop: 2 }}>¿Fue diferente? Toca para registrarlo</p>
+                      </div>
+                    </div>
+                    <span style={{ fontSize: 16, color: todayEx.color1, opacity: 0.5 }}>✎</span>
+                  </button>
+                )}
+              </div>
+
               {/* Series */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                 <p style={{ fontSize: 11, color: "#555", letterSpacing: ".12em", textTransform: "uppercase" }}>Series recomendadas</p>
@@ -544,7 +849,7 @@ export default function App() {
                   <button onClick={() => setCurrentDay(d => Math.max(1, d - 1))} style={{ background: "rgba(255,255,255,0.07)", border: "none", color: "#f0ede8", width: 36, height: 36, borderRadius: 8, cursor: "pointer", fontSize: 16 }}>‹</button>
                   <div style={{ flex: 1, textAlign: "center" }}>
                     <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 26, color: "#f0ede8" }}>Día {currentDay}</span>
-                    <span style={{ fontSize: 11, color: "#555", display: "block" }}>{currentDay} {getExercise(currentDay).name} · {getSeries(currentDay, seriesCount).join("+")}</span>
+                    <span style={{ fontSize: 11, color: "#555", display: "block" }}>{currentDay} {getExercise(currentDay).name} · {getSeries(currentDay, seriesCount, getExerciseIdx(currentDay) !== 0).join("+")}</span>
                   </div>
                   <button onClick={() => setCurrentDay(d => Math.min(365, d + 1))} style={{ background: "rgba(255,255,255,0.07)", border: "none", color: "#f0ede8", width: 36, height: 36, borderRadius: 8, cursor: "pointer", fontSize: 16 }}>›</button>
                 </div>
@@ -555,7 +860,6 @@ export default function App() {
           {/* ── TAB STATS ── */}
           {activeTab === "stats" && (
             <div style={{ padding: "0 20px" }}>
-              {/* Submenú filtro */}
               <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4, marginBottom: 20 }}>
                 {subFilters.map(f => {
                   const isActive = statsFilter === f.key;
@@ -579,11 +883,20 @@ export default function App() {
           {/* ── TAB HISTORIAL ── */}
           {activeTab === "historial" && (
             <div style={{ padding: "0 20px" }}>
-              <p style={{ fontSize: 11, color: "#555", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 16 }}>Últimos 14 días</p>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <p style={{ fontSize: 11, color: "#555", letterSpacing: ".12em", textTransform: "uppercase" }}>Últimos 14 días</p>
+                <p style={{ fontSize: 11, color: "#444" }}>Toca un día para editar</p>
+              </div>
               {Array.from({ length: Math.min(14, TODAY) }, (_, i) => {
-                const d = TODAY - i, e = getExercise(d), s = getSeries(d, seriesCount);
+                const d = TODAY - i, e = getExercise(d), s = getSeries(d, seriesCount, getExerciseIdx(d) !== 0);
+                const dLog = getDayStatus(d, dayLog);
+                const isExplicit = !!dayLog[d];
                 return (
-                  <div key={d} style={{ display: "flex", alignItems: "center", padding: "14px 0", borderBottom: "1px solid rgba(255,255,255,0.05)", gap: 14 }}>
+                  <div
+                    key={d}
+                    onClick={() => { setLogDay(d); setShowDayLog(true); }}
+                    style={{ display: "flex", alignItems: "center", padding: "14px 0", borderBottom: "1px solid rgba(255,255,255,0.05)", gap: 14, cursor: "pointer" }}
+                  >
                     <div style={{ width: 9, height: 9, borderRadius: 2, background: e.color1, flexShrink: 0 }} />
                     <div style={{ width: 32, textAlign: "center" }}>
                       <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 21, color: e.color1, lineHeight: 1 }}>{d}</p>
@@ -592,8 +905,26 @@ export default function App() {
                     <div style={{ flex: 1 }}>
                       <p style={{ fontSize: 14, fontWeight: 500, color: "#f0ede8" }}>{d} {e.name}</p>
                       <p style={{ fontSize: 11, color: "#444", marginTop: 2 }}>{s.join("+")} reps</p>
+                      {dLog?.type === "alt" && dLog.sport && (
+                        <p style={{ fontSize: 11, color: "#47ffb8", marginTop: 1 }}>🏃 {dLog.sport}</p>
+                      )}
+                      {dLog?.type === "fail" && (
+                        <p style={{ fontSize: 11, color: "#ff5050", marginTop: 1 }}>✗ No entrenado</p>
+                      )}
+                      {!isExplicit && (
+                        <p style={{ fontSize: 10, color: "#333", marginTop: 1 }}>por defecto</p>
+                      )}
                     </div>
-                    <div style={{ width: 26, height: 26, borderRadius: "50%", background: e.color2, border: `1px solid ${e.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: e.color1 }}>✓</div>
+                    <div style={{
+                      width: 30, height: 30, borderRadius: "50%",
+                      background: dLog?.type === "done" ? e.color2 : dLog?.type === "alt" ? "rgba(71,255,184,0.1)" : "rgba(255,80,80,0.1)",
+                      border: `1px solid ${dLog?.type === "done" ? e.border : dLog?.type === "alt" ? "rgba(71,255,184,0.3)" : "rgba(255,80,80,0.3)"}`,
+                      display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13,
+                      color: dLog?.type === "done" ? e.color1 : dLog?.type === "alt" ? "#47ffb8" : "#ff5050",
+                      flexShrink: 0
+                    }}>
+                      {dLog?.type === "done" ? "✓" : dLog?.type === "alt" ? "🏃" : "✗"}
+                    </div>
                   </div>
                 );
               })}
